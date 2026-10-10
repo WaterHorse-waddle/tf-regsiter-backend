@@ -11,6 +11,8 @@ func SetupRoutes(
 	userHandler *handlers.UserHandler,
 	teamHandler *handlers.TeamHandler,
 	adminHandler *handlers.AdminHandler,
+	announcementHandler *handlers.AnnouncementHandler,
+	issueHandler *handlers.IssueHandler,
 	jwtSecretKey string,
 ) {
 	// Root health check endpoint
@@ -33,6 +35,11 @@ func SetupRoutes(
 
 	for _, prefix := range routePrefixes {
 		rootGroup := fiberApplication.Group(prefix)
+
+		// -------------------------------------------------------------
+		// Public Announcements
+		// -------------------------------------------------------------
+		rootGroup.Get("/announcements", announcementHandler.ListPublicAnnouncements)
 
 		// -------------------------------------------------------------
 		// User Routes
@@ -94,9 +101,19 @@ func SetupRoutes(
 		rootGroup.Post("/payment/webhook", teamHandler.HandleCashfreeWebhook)
 
 		// -------------------------------------------------------------
+		// Issue Routes (Participant)
+		// -------------------------------------------------------------
+		rootGroup.Post("/issue", middlewares.AuthenticateUser(jwtSecretKey), issueHandler.CreateIssue)
+
+		// -------------------------------------------------------------
 		// Admin Portal Routes (RBAC Protected)
 		// -------------------------------------------------------------
 		adminGroup := rootGroup.Group("/admin")
+
+		adminAnnouncements := adminGroup.Group("/announcements", middlewares.AuthenticateAdmin(jwtSecretKey), middlewares.RequireAdminPermission("admins"))
+		adminAnnouncements.Get("/", announcementHandler.ListAdminAnnouncements)
+		adminAnnouncements.Post("/", announcementHandler.CreateAnnouncement)
+		adminAnnouncements.Delete("/:id", announcementHandler.DeleteAnnouncement)
 
 		// Admin Auth Endpoints
 		adminAuth := adminGroup.Group("/auth")
@@ -141,5 +158,11 @@ func SetupRoutes(
 		adminAdmins.Post("/", adminHandler.CreateAdmin)
 		adminAdmins.Put("/:id", adminHandler.UpdateAdmin)
 		adminAdmins.Delete("/:id", adminHandler.DeleteAdmin)
+
+		// Admin Issue Management (any authenticated admin)
+		adminIssues := adminGroup.Group("/issues", middlewares.AuthenticateAdmin(jwtSecretKey))
+		adminIssues.Get("/", issueHandler.ListIssues)
+		adminIssues.Patch("/:id/status", issueHandler.UpdateIssueStatus)
+		adminIssues.Delete("/:id", issueHandler.DeleteIssue)
 	}
 }

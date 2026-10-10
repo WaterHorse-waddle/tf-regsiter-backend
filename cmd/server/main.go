@@ -32,6 +32,8 @@ func main() {
 	userRepository := repository.NewUserRepository(databaseConnectionPool)
 	teamRepository := repository.NewTeamRepository(databaseConnectionPool)
 	adminRepository := repository.NewAdminRepository(databaseConnectionPool)
+	announcementRepository := repository.NewAnnouncementRepository(databaseConnectionPool)
+	issueRepository := repository.NewIssueRepository(databaseConnectionPool)
 
 	// 4. Initialize Services
 	userService := service.NewUserService(userRepository, teamRepository, applicationConfig)
@@ -42,6 +44,8 @@ func main() {
 	teamService := service.NewTeamService(teamRepository, userRepository, 5)
 	cashfreeService := service.NewCashfreeService(applicationConfig, teamRepository, userRepository)
 	adminService := service.NewAdminService(adminRepository, applicationConfig)
+	announcementService := service.NewAnnouncementService(announcementRepository)
+	issueService := service.NewIssueService(issueRepository)
 	if err := adminService.SeedRootAdmins(context.Background()); err != nil {
 		log.Printf("Notice: Root admins seeding error: %v", err)
 	}
@@ -50,6 +54,8 @@ func main() {
 	userHandler := handlers.NewUserHandler(userService, applicationConfig.JWTSecret)
 	teamHandler := handlers.NewTeamHandler(teamService, cashfreeService)
 	adminHandler := handlers.NewAdminHandler(adminService, applicationConfig.JWTSecret)
+	announcementHandler := handlers.NewAnnouncementHandler(announcementService)
+	issueHandler := handlers.NewIssueHandler(issueService)
 
 	// 6. Initialize Fiber web application
 	fiberApplication := fiber.New(fiber.Config{
@@ -72,7 +78,7 @@ func main() {
 	}))
 
 	// 8. Register all application routes
-	routes.SetupRoutes(fiberApplication, userHandler, teamHandler, adminHandler, applicationConfig.JWTSecret)
+	routes.SetupRoutes(fiberApplication, userHandler, teamHandler, adminHandler, announcementHandler, issueHandler, applicationConfig.JWTSecret)
 
 	// 9. Start listening on configured port
 	listenAddress := fmt.Sprintf(":%s", applicationConfig.Port)
